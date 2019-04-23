@@ -24,7 +24,6 @@ try {
   }
 }
 
-// client.end({cmd: 'deposit', amount: 100})
 if (command === 'register') {
   var newPublicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
   var newSecretKey = sodium.sodium_malloc(sodium.crypto_sign_SECRETKEYBYTES)
@@ -38,12 +37,8 @@ if (command === 'register') {
     customer = process.argv[4]
   }
   try {
-    // ----->>>>>> improve process.argv[-1] style --------->>>>>>>> make another conditional block for withdraw/deposit
-
     var filePublic = fileNamePublic.replace('user', customer)
     var fileSecret = fileNameSecret.replace('user', customer)
-
-    console.log(fileSecret, filePublic)
 
     var secretKey = fs.readFileSync(fileSecret, 'ascii')
     var publicKey = fs.readFileSync(filePublic, 'ascii')
@@ -55,8 +50,6 @@ if (command === 'register') {
     }
 
     order.signature = bank.signToHex(JSON.stringify(order), Buffer.from(secretKey, 'hex'))
-    console.log(order)
-  // hashCount = bank.hashToHex(hashCount)
     client.end(order)
   } catch (err) {
     if (err.code === 'ENOENT') {
@@ -64,7 +57,6 @@ if (command === 'register') {
     }
   }
 }
-console.log(hashCount)
 
 client.on('data', function (msg) {
   if (msg.hasOwnProperty('customerNumber')) {
@@ -81,7 +73,7 @@ client.on('data', function (msg) {
     sodium.sodium_memzero(newSecretKey)
     sodium.sodium_munlock(newSecretKey)
   }
-  // -------------->>>> need to have bank give new hash, bank stores list of hashes and checks, bank must encrypt hashLog to prevent tampering.
+
   console.log('Teller received:', msg)
   if (!msg.hasOwnProperty('error')) {
     fs.writeFileSync('./hash.counter', bank.hashToHex(hashCount))
