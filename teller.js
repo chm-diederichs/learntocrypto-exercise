@@ -18,8 +18,9 @@ try {
   hashCount = fs.readFileSync('./hash.counter', 'ascii').toString('hex')
 } catch (err) {
   if (err.code === 'ENOENT') {
-    console.log('well')
-    hashCount = bank.hashToHex([])
+    hashCount = bank.hashToHex(JSON.stringify([]))
+  } else {
+    if (err) throw err
   }
 }
 
@@ -63,8 +64,8 @@ if (command === 'register') {
     }
   }
 }
+console.log(hashCount)
 
-console.log(hashCount) // ********** ISSUE: deposit ruins hash counter...
 client.on('data', function (msg) {
   if (msg.hasOwnProperty('customerNumber')) {
     sodium.sodium_mprotect_readwrite(newSecretKey)
@@ -82,7 +83,7 @@ client.on('data', function (msg) {
   }
   // -------------->>>> need to have bank give new hash, bank stores list of hashes and checks, bank must encrypt hashLog to prevent tampering.
   console.log('Teller received:', msg)
-  fs.writeFile('./hash.counter', bank.hashToHex(hashCount).toString('hex'), function (err) {
-    if (err) throw err
-  })
+  if (!msg.hasOwnProperty('error')) {
+    fs.writeFileSync('./hash.counter', bank.hashToHex(hashCount))
+  }
 })

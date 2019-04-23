@@ -1,10 +1,11 @@
 {
-  "name": "learntocrypto",
+  "name": "sodium-native",
   "version": "0.0.0",
   "description": "Learn to crypto workshop",
   "main": "index.js",
   "dependencies": {
     "duplex-json-stream": "github:mafintosh/duplex-json-stream",
+    "fs": "0.0.1-security",
     "net": "^1.0.2",
     "siginfo": "^1.0.1",
     "sodium-native": "^2.3.0"

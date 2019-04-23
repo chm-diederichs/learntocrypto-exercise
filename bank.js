@@ -4,9 +4,11 @@ var net = require('net')
 var sodium = require('sodium-native')
 var fs = require('fs')
 
-var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+var secretKey = sodium.sodium_malloc(sodium.crypto_sign_SECRETKEYBYTES)
 var publicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
-var symmKey = Buffer.alloc(sodium.crypto_secretbox_KEYBYTES)
+var symmKey = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
+// var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+// var symmKey = Buffer.alloc(sodium.crypto_secretbox_KEYBYTES)
 
 var hashLog
 var hashCount
@@ -28,6 +30,7 @@ try {
     })
   }
 }
+sodium.sodium_mprotect_noaccess(secretKey)
 
 // load symmetric key / establish new one
 try {
@@ -38,6 +41,7 @@ try {
     if (err) throw err
   })
 }
+sodium.sodium_mprotect_noaccess(symmKey)
 
 // load and decrypt existing log or initiate blank log
 try {
@@ -52,51 +56,55 @@ try {
   var hashCipher = Buffer.from(hashLog.cipher, 'hex')
   var hashMessage = Buffer.alloc(hashCipher.length - sodium.crypto_secretbox_MACBYTES)
 
+  sodium.sodium_mprotect_readonly(symmKey)
   sodium.crypto_secretbox_open_easy(message, cipher, nonce, symmKey)
   sodium.crypto_secretbox_open_easy(hashMessage, hashCipher, hashNonce, symmKey)
+  sodium.sodium_mprotect_noaccess(symmKey)
 
   log = JSON.parse(message.toString('ascii'))
-  hashLog = JSON.parse(message.toString('ascii'))
+  hashLog = JSON.parse(hashMessage.toString('ascii'))
 
-  for (i = 0; i < hashLog.length; i++) {
-    hashLog[i] = hashLog[i].value.hashCount
-  }
+  console.log(hashLog)
 } catch (err) {
   if (err.code === 'ENOENT') {
     console.log('The bank just opened!')
     log = [{ value: {}, hash: Buffer.alloc(sodium.crypto_generichash_BYTES), signature: Buffer.alloc(sodium.crypto_sign_BYTES) }]
     sodium.crypto_generichash(log[0].hash, Buffer.from(log[0].hash.toString('hex') + JSON.stringify(log[0].value)))
+
+    sodium.sodium_mprotect_readonly(secretKey)
     sodium.crypto_sign_detached(log[0].signature, log[0].hash, secretKey)
+    sodium.sodium_mprotect_noaccess(secretKey)
+
     log[0].hash = log[0].hash.toString('hex')
     log[0].signature = log[0].signature.toString('hex')
 
-    hashLog = []
-    hashCount = hashLog
+    hashLog = [bank.hashToHex(JSON.stringify([]))]
+  } else {
+    console.log(err)
   }
 }
 
 // set up TCP server
 var server = net.createServer(function (socket) {
   socket = jsonStream(socket)
-
   var state = log.reduce(bank.updateState, {})
 
   socket.on('data', function (msg) {
-    console.log(log)
-    hashCount = bank.hashToHex(hashCount)
+    hashCount = hashLog.slice(-1)[0]
     if (!(bank.hashChain(log) === log[log.length - 1].hash) || (!bank.verifySignatureChain(log, publicKey))) {
-      socket.end('log verification failed.')
+      console.log(log, bank.verifySignatureChain(log, publicKey))
+      // console.log(sodium.crypto_sign_verify_detached(Buffer.from('sign', 'hex'), Buffer.from('hash', 'hex'), publicKey))
+      socket.end({ error: 'log verification failed.' })
       return
     } else if (msg.hashCount !== hashCount) {
-      console.log(hashCount, bank.hashToHex(hashCount))
-      socket.end('attempted fraud detected - invalid hash.')
+      socket.end({ error: 'Invalid hash.' })
     }
 
     if (msg.cmd !== 'register') {
       if (!(state.hasOwnProperty(msg.customerNumber))) {
-        socket.end('please, register first.')
+        socket.end({ error: 'please, register first.' })
       } else if (sodium.crypto_sign_verify_detached(Buffer.from(msg.signature, 'hex'), Buffer.from(msg.customerId, 'hex'), publicKey)) {
-        socket.end('attempted fraud detected - invalid signature.')
+        socket.end({ error: 'Invalid signature.' })
       }
     }
     console.log('Bank received:', msg)
@@ -109,11 +117,13 @@ var server = net.createServer(function (socket) {
       case 'deposit':
         bank.updateState(state, { value: msg })
 
+        sodium.sodium_mprotect_readonly(secretKey)
         log.push({
           value: msg,
           hash: bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)),
           signature: bank.signToHex(bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)), secretKey)
         })
+        sodium.sodium_mprotect_noaccess(secretKey)
 
         socket.write('Order registered.')
         break
@@ -126,11 +136,13 @@ var server = net.createServer(function (socket) {
           break
         }
 
+        sodium.sodium_mprotect_readonly(secretKey)
         log.push({
           value: msg,
           hash: bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)),
           signature: bank.signToHex(bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)), secretKey)
         })
+        sodium.sodium_mprotect_noaccess(secretKey)
 
         socket.write('Order registered')
         break
@@ -140,33 +152,38 @@ var server = net.createServer(function (socket) {
         msg.customerNumber = (Object.keys(state).length + 1).toString()
         socket.write({ 'customerNumber': msg.customerNumber })
 
+        sodium.sodium_mprotect_readonly(secretKey)
         log.push({
           value: msg,
           hash: bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)),
           signature: bank.signToHex(bank.hashToHex(log[log.length - 1].hash + JSON.stringify(msg)), secretKey)
         })
+        sodium.sodium_mprotect_noaccess(secretKey)
 
         bank.updateState(state, { value: msg })
         break
     }
 
     hashLog.push(bank.hashToHex(hashCount))
+    console.log(hashLog, 'good')
+
     var persistentLog = JSON.stringify(log, null, 2)
 
+    sodium.sodium_mprotect_readonly(symmKey)
     var encryptLog = bank.encryptToHex(Buffer.from(persistentLog), symmKey)
-    var encryptHashLog = bank.encryptToHex(Buffer.from(JSON.stringify(hashLog, null, 2)), symmKey)
+    var encryptHashLog = bank.encryptToHex(Buffer.from(JSON.stringify(hashLog, 2)), symmKey)
+    console.log('updated logs')
+    sodium.sodium_mprotect_noaccess(symmKey)
 
     // save transaction log for next restart
-    fs.writeFile('persistentLog.json', persistentLog, function (err) {
-      if (err) throw err
-    })
-    fs.writeFile('encrypt.log', JSON.stringify(encryptLog), function (err) {
-      if (err) throw err
-    })
-    fs.writeFile('encrypt_hash.log', JSON.stringify(encryptHashLog), function (err) {
-      if (err) throw err
-    })
+    fs.writeFileSync('encrypt.log', JSON.stringify(encryptLog))
+    fs.writeFileSync('encrypt_hash.log', JSON.stringify(encryptHashLog))
   })
 })
 
 server.listen(3876)
+
+// sodium.sodium_mprotect_readwrite(symmKey)
+// sodium.sodium_mprotect_readwrite(secretKey)
+// sodium.sodium_free(symmKey)
+// sodium.sodium_free(secretKey)
