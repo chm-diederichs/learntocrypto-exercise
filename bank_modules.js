@@ -11,7 +11,7 @@ var toExport = {
   },
 
   updateState: function (state, event) {
-    if (event.value.cmd === 'register') { // this won't work since initState has no event.cmd
+    if (event.value.cmd === 'register') {
       state[event.value.customerNumber] = 0
       return state
     }
@@ -45,7 +45,7 @@ var toExport = {
   hashChain: function (log, prevHash = Buffer.alloc(sodium.crypto_generichash_BYTES).toString('hex')) {
     var i
     for (i = 0; i < log.length; i++) {
-      prevHash = toExport.hashToHex(Buffer.from(prevHash + JSON.stringify(log[i].value))) ///  u dont wanna add them
+      prevHash = toExport.hashToHex(Buffer.from(prevHash + JSON.stringify(log[i].value)))
     }
     return (prevHash)
   },
