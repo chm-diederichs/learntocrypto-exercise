@@ -4,27 +4,28 @@ bank.js script outlines a basic bank capable of supporting multiple customers se
 teller.js is a CLI tool to communicate with bank.js 
 
 run bank.js and then run teller.js using the following commands:
-  register:
-    ```javascript
-    node teller.js register  
-    // returns customer_number
-    ```
+
+  **register**:
+```javascript
+node teller.js register  
+// returns customer_number
+```
   
-  balance:
-    ```javascript
-    node teller.js balance <customer_number>  
-    // returns balance for specified customer
-    ```
+  **balance**:
+```javascript
+node teller.js balance <customer_number>  
+// returns balance for specified customer
+```
   
-  deposit:
-    ```javascript
-    node teller.js deposit <amount> <customer_number>  
-    // deposits <amount> into <customer_number> account
-    ```
+  **deposit**:
+```javascript
+node teller.js deposit <amount> <customer_number>  
+// deposits <amount> into <customer_number> account
+```
   
-  withdraw:
-    ```javascript
-    node.js teller.js withdraw <amount> <customer_number>  
-    // withdraws <amount> from <customer_number> account  
-    // raises error if there are insufficient funds
-    ```
+  **withdraw**:
+```javascript
+node.js teller.js withdraw <amount> <customer_number>  
+// withdraws <amount> from <customer_number> account  
+// raises error if there are insufficient funds
+```
