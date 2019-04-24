@@ -1,9 +1,9 @@
 # learntocrypto-exercise
 
-My solution to the [learntocrypto workshop](https://github.com/sodium-friends/learntocrypto)
+My solution to the [learntocrypto workshop](https://github.com/sodium-friends/learntocrypto).
 
 `bank.js` script outlines a basic bank capable of supporting multiple customers securely.
-`teller.js` is a CLI tool to communicate with `bank.js`. 
+`teller.js` is a CLI tool to communicate with `bank.js` over a TCP server. 
 
 Run `bank.js` with:
 ```javascript
