@@ -17,8 +17,6 @@ $ node teller.js register
 // returns customer_number
 ```
 
-   Teller.js generates and saves a new keypair for new customer and passes public key to bank.js, each subsequent request is then signed by the customer and the bank verifies the request before processing.
-  
 #### Request balance:
 ```javascript
 $ node teller.js balance <customer_number>  
